@@ -28,7 +28,8 @@ def get_args():
     parser = argparse.ArgumentParser(description="Arguments for C3 methods",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--obj", default="chair", type=str, help="A creative 'object'")
-    parser.add_argument("--start_seed", type=int, default=0, help="n_samples")
+    parser.add_argument("--start_seed", type=int, default=0, help="starting seed")
+    parser.add_argument("--n_samples", type=int, default=10, help="n_samples")
     parser.add_argument("--model", default="sdxl-turbo",type=str, help="Backbone models: sdxl-turbo or sdxl-light-1")
     return parser.parse_args()
 
@@ -130,6 +131,7 @@ def main():
     start_seed = args.start_seed 
     obj = args.obj
     model_name = args.model
+    n_samples = args.n_samples
     
     
     cmodel, c_preprocess = clip.load("ViT-B/32", device="cuda")
@@ -142,10 +144,10 @@ def main():
     )
     amodel = amodel.to(torch.bfloat16).cuda()
     
-    seeds = np.arange(start_seed,start_seed+10,1)
+    seeds = np.arange(start_seed,start_seed+n_samples,1)
 
     clip_ls_all, aes_ls_all = compute_score(cmodel,c_preprocess,amodel,a_preprocessor,obj,seeds,model_name)
-    print(f"save {obj} usability score in seed {start_seed} to {start_seed+10}...")
+    print(f"save {obj} usability score in seed {start_seed} to {start_seed+n_samples}...")
     
     filename_clip = f"/results/{model_name}/{obj}/clip_score.json"
     clip_current_list = load_list(filename_clip)
