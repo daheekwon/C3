@@ -1,14 +1,15 @@
 import os
-import sys
+# import sys
 import torch
-import random
+# import random
 import numpy as np
-import torch.nn.functional as F
+import json
+# import torch.nn.functional as F
 from diffusers import DDIMScheduler, DiffusionPipeline, AutoPipelineForText2Image, StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
-from matplotlib import gridspec
-from matplotlib import pyplot as plt
+# from matplotlib import gridspec
+# from matplotlib import pyplot as plt
 from score_util_pub import *
 import argparse
 
@@ -18,52 +19,66 @@ torch.cuda.empty_cache()
 def get_args():
     parser = argparse.ArgumentParser(description="Arguments for C3 methods",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--obj", default="chair", type=str, help="A creative 'object'")
-    parser.add_argument("--n_samples", type=int, default=100, help="n_samples")
-    parser.add_argument("--model", default="sdxl-turbo",type=str, help="Backbone models: sdxl-turbo or sdxl-light-1")
-    
+    parser.add_argument("--conf_file", default="src/default.cfg", type=str, help="configuration file")
+   
     return parser.parse_args()
 
-def sampling(model, obj, seed, model_name):
-    tar_prompt = f"a creative {obj}"
+def sampling(model, tar_prompt, seed, save_dir, cutoffs, amp_factor, c3_steps, n_steps=-1, guidance_scale=-1):
+    os.makedirs(save_dir, exist_ok=True)
 
-    range1 = np.arange(1.1, 2.01, 0.1).tolist()
-    range2 = np.arange(2.0, 5.01, 0.25).tolist()
-    amp_factor = {0:sorted(set(range1 + range2)),1:sorted(set(range1 + range2)),2:list(np.arange(2,10.01,1)),3:list(np.arange(2,10.01,1))}
+    params = {'prompt': tar_prompt}
+    if guidance_scale != -1:
+        params['guidance_scale'] = guidance_scale
+    if n_steps != -1:
+        params['num_inference_steps'] = n_steps
+
+    fname = os.path.join(save_dir, "sample_org.png")
+    if not os.path.exists(fname): 
+        set_seed(int(seed))
+        out = model(**params)
+        img = out[0].images[0]
+        img.save(fname)
     
-    set_seed(int(seed))
-    output_dir = f"/results/{model_name}/{obj}/seed_{seed}"
-    os.makedirs(output_dir, exist_ok=True)
+    cutoffs = fold_mask(cutoffs)
     
-    out = model(tar_prompt,guidance_scale=0,num_inference_steps=1)
-    img = out[0].images[0]
-    img.save(f"/results/{model_name}/{obj}/seed_{seed}/sample_org.png")
-    
-    cutoffs = fold_mask([5.0, 5.0, 5.0, 5.0, 1.0, 1.0, 1.0])
     empty_mask = [[] for i in range(7)]
     empty_mask = fold_mask(empty_mask)
-    dummy_mask = {t: empty_mask for t in range(1)}
+    dummy_mask = {t: empty_mask for t in range(c3_steps)}
+    params['hidden_mask'] = dummy_mask
+    params['replace_on'] = 'freq'
+
 
     for key,value in amp_factor.items():
         for val in value:
+            fname = os.path.join(save_dir, f"sample_{key}_{int(val*100)}.png")
+            if os.path.exists(fname): continue
             amp = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-            amp[key] = val
+            amp[int(key)] = float(val)
             replace_mask = fold_mask(amp)
+            params['replace_mask'] = replace_mask
             set_seed(int(seed))
-            out = model(
-            prompt=tar_prompt, num_inference_steps=1, guidance_scale=0, replace_mask=replace_mask, replace_on='freq', hidden_mask=dummy_mask, cutoff_freq=cutoffs
-            )
+            out = model(**params)
             img = out[0].images[0]
-            img.save(f"/results/{model_name}/{obj}/seed_{seed}/sample_{key}_{int(val*100)}.png")
+            img.save(fname)
     
 
 def main():
     args = get_args()
+    conf_file = args.conf_file
+    with open(conf_file, 'r') as conf:
+        config = json.load(conf)
     
-    obj = args.obj
-    n_samples = args.n_samples
-    model_name = args.model
-    
+    obj = config["obj"]
+    n_samples = config["n_samples"]
+    model_name = config["model"]
+    base_dir = config["work_dir_prefix"]
+    cutoff = config["cutoff"]
+    amp_range = config["range"]
+    prompt = config["prompt"].format(obj=obj)
+    n_steps = config["n_steps"]
+    c3_steps = config["c3_steps"]
+    guidance_scale = config["guidance_scale"]
+
     if model_name == "sdxl-turbo":
         pipe = AutoPipelineForText2Image.from_pretrained("stabilityai/sdxl-turbo", torch_dtype=torch.float16, variant="fp16").to("cuda")
     elif model_name == "sdxl-light-1":
@@ -77,7 +92,8 @@ def main():
     print("Model loaded.")
     
     for seed in range(n_samples):
-        sampling(pipe, obj, seed, model_name)
+        save_dir = os.path.join(base_dir, f'{model_name}/{obj}/seed_{seed}/')
+        sampling(pipe, prompt, seed, save_dir, cutoff, amp_range, c3_steps, n_steps, guidance_scale)
         print(f"Sampling in {seed}-seed is done.")
 
     

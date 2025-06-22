@@ -27,10 +27,11 @@ torch.cuda.empty_cache()
 def get_args():
     parser = argparse.ArgumentParser(description="Arguments for C3 methods",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--obj", default="chair", type=str, help="A creative 'object'")
+    parser.add_argument("--conf_file", default="src/default.cfg", type=str, help="configuration file")
+    # parser.add_argument("--obj", default="chair", type=str, help="A creative 'object'")
     parser.add_argument("--start_seed", type=int, default=0, help="starting seed")
     parser.add_argument("--n_samples", type=int, default=10, help="n_samples")
-    parser.add_argument("--model", default="sdxl-turbo",type=str, help="Backbone models: sdxl-turbo or sdxl-light-1")
+    # parser.add_argument("--model", default="sdxl-turbo",type=str, help="Backbone models: sdxl-turbo or sdxl-light-1")
     return parser.parse_args()
 
 
@@ -48,12 +49,12 @@ def save_list(data_list, filename):
         json.dump(data_list, file)
 
         
-def compute_score(cmodel,c_preprocess,amodel,a_preprocessor,obj,seeds,model_name):
+def compute_score(cmodel,c_preprocess,amodel,a_preprocessor,seeds,save_dir, txt):
     # Define the path to the directory containing the image samples
     clip_ls_all = []
     aes_ls_all = []
     for seed in seeds:
-        image_folder = f"/results/{model_name}/{obj}/seed_{seed}"
+        image_folder = os.path.join(save_dir, f"seed_{seed}")
 
         # Create four lists for each category (0 to 3)
         img_lists = [{} for _ in range(4)]
@@ -76,12 +77,13 @@ def compute_score(cmodel,c_preprocess,amodel,a_preprocessor,obj,seeds,model_name
                     # Add to the corresponding category list
                     img_lists[number1][number2] = image
                     
-                    org_path = f"/results/{model_name}/{obj}/seed_{seed}/sample_org.png"
-                    org_img = Image.open(org_path)
-                    img_lists[number1][0] = org_img
-                    img_lists[number1] = dict(sorted(img_lists[number1].items()))
+        org_path = os.path.join(image_folder, f"sample_org.png")
+        org_img = Image.open(org_path)
+        for number1 in range(4):
+            img_lists[number1][0] = org_img
+            img_lists[number1] = dict(sorted(img_lists[number1].items()))
 
-        txt = f'A creative {obj}'
+        # txt = f'A creative {obj}'
 
         clip_ls = []
         aes_ls = []
@@ -128,10 +130,16 @@ def compute_score(cmodel,c_preprocess,amodel,a_preprocessor,obj,seeds,model_name
 
 def main():
     args = get_args()
+    conf_file = args.conf_file
+    with open(conf_file, 'r') as conf:
+        config = json.load(conf)
+
     start_seed = args.start_seed 
-    obj = args.obj
-    model_name = args.model
+    obj = config["obj"]
+    model_name = config["model"]
+    base_dir = config["work_dir_prefix"]
     n_samples = args.n_samples
+    prompt = config["prompt"].format(obj=obj)
     
     
     cmodel, c_preprocess = clip.load("ViT-B/32", device="cuda")
@@ -146,15 +154,17 @@ def main():
     
     seeds = np.arange(start_seed,start_seed+n_samples,1)
 
-    clip_ls_all, aes_ls_all = compute_score(cmodel,c_preprocess,amodel,a_preprocessor,obj,seeds,model_name)
+    save_dir = os.path.join(base_dir, f'{model_name}/{obj}/')
+
+    clip_ls_all, aes_ls_all = compute_score(cmodel,c_preprocess,amodel,a_preprocessor,seeds,save_dir, prompt)
     print(f"save {obj} usability score in seed {start_seed} to {start_seed+n_samples}...")
     
-    filename_clip = f"/results/{model_name}/{obj}/clip_score.json"
+    filename_clip = os.path.join(save_dir, "clip_score.json")
     clip_current_list = load_list(filename_clip)
     clip_current_list.append(clip_ls_all)
     save_list(clip_current_list, filename_clip)
     
-    filename_aes = f"/results/{model_name}/{obj}/aes_score.json"
+    filename_aes = os.path.join(save_dir, "aes_score.json")
     aes_current_list = load_list(filename_aes)
     aes_current_list.append(aes_ls_all)
     save_list(aes_current_list, filename_aes)

@@ -27,9 +27,10 @@ torch.cuda.empty_cache()
 def get_args():
     parser = argparse.ArgumentParser(description="Arguments for C3 methods",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--obj", default="chair", type=str, help="A creative 'object'")
-    parser.add_argument("--thres", type=int, default=80, help="thrshold to choose amplifying factor")
-    parser.add_argument("--model", default="sdxl-turbo",type=str, help="Backbone models: sdxl-turbo or sdxl-light-1")
+    parser.add_argument("--conf_file", default="src/default.cfg", type=str, help="configuration file")
+    # parser.add_argument("--obj", default="chair", type=str, help="A creative 'object'")
+    # parser.add_argument("--thres", type=int, default=80, help="thrshold to choose amplifying factor")
+    # parser.add_argument("--model", default="sdxl-turbo",type=str, help="Backbone models: sdxl-turbo or sdxl-light-1")
     return parser.parse_args()
 
 
@@ -92,23 +93,26 @@ def compute_amp_factor(clip_ls_all,aes_ls_all,thres):
 
 def main():
     args = get_args()
-    obj = args.obj
-    thres = args.thres*0.01
-    model_name = args.model
-    
+    conf_file = args.conf_file
+    with open(conf_file, 'r') as conf:
+        config = json.load(conf)
+    obj = config["obj"]
+    thres = config["use_thres"]#*0.01
+    model_name = config["model"]
+    base_dir = config["work_dir_prefix"]
         
-    filename_clip = f"/results/{model_name}/{obj}/clip_score.json"
+    filename_clip = os.path.join(base_dir, f"{model_name}/{obj}/clip_score.json")
     clip_ls_all = load_list(filename_clip)
-    filename_aes = f"/results/{model_name}/{obj}/aes_score.json"
+    filename_aes = os.path.join(base_dir, f"{model_name}/{obj}/aes_score.json")
     aes_ls_all = load_list(filename_aes)
     
     
-    amp_factor = compute_amp_factor(clip_ls_all,aes_ls_all,thres)
+    amp_factor = compute_amp_factor(clip_ls_all,aes_ls_all,float(thres)*0.01)
     
     # File to save and load the list
     print(f"save {obj} amplifying factors...")
     
-    filename = f"/results/{model_name}/{obj}/amp_factors_{args.thres}.json"
+    filename = os.path.join(base_dir, f"{model_name}/{obj}/amp_factors_{thres}.json")
     current_list = load_list(filename)
     current_list.append(amp_factor)
     save_list(current_list, filename)

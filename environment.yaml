@@ -1,4 +1,4 @@
-name: t2i_eval
+name: C3
 channels:
   - defaults
   - conda-forge
