@@ -1,4 +1,4 @@
-# C3: Creatvie Concept Catalyst
+# C3: Creative Concept Catalyst
 
 Jiyeon Han* · Dahee Kwon* · Gayoung Lee · Junho Kim · Jaesik Choi (* Equal Contribution)  
 
