@@ -48,12 +48,7 @@ def save_list(data_list, filename):
         json.dump(data_list, file)
         
 
-def compute_amp_factor(clip_ls_all,aes_ls_all,thres):
-    
-    range1 = np.arange(1.1, 2.01, 0.1).tolist()
-    range2 = np.arange(2.0, 5.01, 0.25).tolist()
-    amp_factor = {0:sorted(set(range1 + range2)),1:sorted(set(range1 + range2)),2:list(np.arange(2,10.01,1)),3:list(np.arange(2,10.01,1))}
-    
+def compute_amp_factor(clip_ls_all,aes_ls_all,thres, amp_factor):
     clip_0 = np.mean([clip_ls_all[i][j][0] for j in range(len(clip_ls_all[0])) for i in range(len(clip_ls_all))], axis=0)
     clip_1 = np.mean([clip_ls_all[i][j][1] for j in range(len(clip_ls_all[0])) for i in range(len(clip_ls_all))], axis=0)
     clip_2 = np.mean([clip_ls_all[i][j][2] for j in range(len(clip_ls_all[0])) for i in range(len(clip_ls_all))], axis=0)
@@ -83,9 +78,9 @@ def compute_amp_factor(clip_ls_all,aes_ls_all,thres):
     optimal_amps = []
     for l in range(4):
         optimal_amp = 1
-        for i,amp in enumerate(amp_factor[l]):
+        for i,amp in enumerate(amp_factor[f'{l}']):
             if (i != 0) and final_score[l][i] >= final_score[l][0]*thres:
-                optimal_amp = max(optimal_amp, amp)
+                optimal_amp = max(optimal_amp, float(amp))
         optimal_amps.append(optimal_amp)
     return optimal_amps
 
@@ -100,6 +95,7 @@ def main():
     thres = config["use_thres"]#*0.01
     model_name = config["model"]
     base_dir = config["work_dir_prefix"]
+    amp_range = config["range"]
         
     filename_clip = os.path.join(base_dir, f"{model_name}/{obj}/clip_score.json")
     clip_ls_all = load_list(filename_clip)
@@ -107,7 +103,7 @@ def main():
     aes_ls_all = load_list(filename_aes)
     
     
-    amp_factor = compute_amp_factor(clip_ls_all,aes_ls_all,float(thres)*0.01)
+    amp_factor = compute_amp_factor(clip_ls_all,aes_ls_all,float(thres)*0.01, amp_range)
     
     # File to save and load the list
     print(f"save {obj} amplifying factors...")
