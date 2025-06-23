@@ -21,15 +21,41 @@ conda activate C3
 
 ```
 git clone https://github.com/openai/CLIP
+cd CLIP
+pip install -e .
 ```
 
-3) Please change the source code for diffusers below to the code for diffusers_custom:
-- diffusers/pipelines/sdxl_diffusion_xl/pipeline_stasble_diffuson_xl.py
+3) To use our source code, you also need to install diffusers from source "https://github.com/huggingface/diffusers.git":
+
+```
+git clone --branch v0.31.0 https://github.com/huggingface/diffusers.git
+```
+
+4) Please change the source code for diffusers below to the code for diffusers_custom and then install from source:
+- diffusers/pipelines/stable_diffusion_xl/pipeline_stasble_diffuson_xl.py
 - diffusers/models/unets/unet_2d_condition.py
 
+```
+cp diffusers_custom/pipeline_stable_diffusion_xl.py diffusers/src/diffusers/pipelines/stable_diffusion_xl/pipeline_stable_diffusion_xl.py
+cp diffusers_custom/unet_2d_condition.py diffusers/src/diffusers/models/unets/unet_2d_condition.py
+cd diffusers
+pip install -e .
+```  
 
+5) (Optional) If you use older GPU drivers (i.e., CUDA 11.8) please try this version of pytorch.
+ 
+```
+pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu118
+```  
+
+Now, you are ready to play with C3. 
 
  ## Usage
- ```
+ 1) You can try our method by manually setting the amplification factors in a simple ipython notebook `image_generation_examples.ipynb`.
+
+ 2) Or you can automatically find the amplification factors with the following sample script. 
+
+```
 bash scripts/amplification_factors.sh
 ```
+To change the configuration, you can directly modify `src/default.cfg` or use `src/configuration.ipynb` to generate configuration automatically.
