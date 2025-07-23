@@ -59,3 +59,17 @@ Now, you are ready to play with C3.
 bash scripts/amplification_factors.sh
 ```
 To change the configuration, you can directly modify `src/default.cfg` or use `src/configuration.ipynb` to generate configuration automatically.
+
+
+## Citation
+If you find this repo useful, please cite our paper:
+```
+@inproceedings{han2025enhancing,
+  title={Enhancing creative generation on stable diffusion-based models},
+  author={Han, Jiyeon and Kwon, Dahee and Lee, Gayoung and Kim, Junho and Choi, Jaesik},
+  booktitle={Proceedings of the Computer Vision and Pattern Recognition Conference},
+  pages={28609--28618},
+  year={2025}
+}
+```
+
